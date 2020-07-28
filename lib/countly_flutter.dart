@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
+import 'countly_flutter_crash_reporter.dart';
 
 
 enum LogLevel {INFO, DEBUG, VERBOSE, WARNING, ERROR}
@@ -15,7 +16,6 @@ class Countly {
   static Function listenerCallback;
   static bool isDebug = false;
   static final String TAG = "CountlyFlutter";
-  static bool enableCrashReportingFlag = false;
   static Map<String, Object> messagingMode = {"TEST": "1", "PRODUCTION": "0", "ADHOC": "2"};
   static Map<String, Object> deviceIDType = {
     "TemporaryDeviceID": "TemporaryDeviceID"
@@ -668,27 +668,18 @@ class Countly {
     return result;
   }
 
-  static Future<String> enableCrashReporting() async {
-    FlutterError.onError = (FlutterErrorDetails details, {bool forceReport = false}) {
-      try {
-        Countly.logException("${details.exception} \n ${details.stack}", true, {});
-      } catch (e) {
-        print('Sending report to sentry.io failed: $e');
-      } finally {
-        FlutterError.dumpErrorToConsole(details, forceReport: forceReport);
-      }
-    };
-    List <String> args = [];
-    enableCrashReportingFlag = true;
-    log(args.toString());
-    final String result = await _channel.invokeMethod('enableCrashReporting', <String, dynamic>{
-      'data': json.encode(args)
+  static Future<String> enableCrashReporting([bool enableInDevMode]) async {
+    CountlyFlutterCrashReporter.instance.enableCrashReporting(enableInDevMode).then((String result){
+      return result;
     });
-    log(result);
-    return result;
   }
 
-  static Future<String> logException(String execption,bool nonfatal, Map<String, Object> segmentation) async {
+  static Future<void> recordError(dynamic exception, StackTrace stack,
+      {dynamic context}) async {
+    CountlyFlutterCrashReporter.instance.recordError(exception, stack, context: context);
+  }
+
+  static Future<String> logException(String exception,bool nonfatal, Map<String, Object> segmentation) async {
     List <String> args = [];
 
     args.add(execption);
