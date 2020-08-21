@@ -386,6 +386,48 @@ class Countly {
     log(result);
     return result;
   }
+
+  /// Set user location.
+  /// Should be call before Countly init
+  static Future<String> setLocationInit(Map<String, Object> options) async {
+    List <String> args = [];
+
+    String city = options["city"];
+    String country = options["country"];
+    String latitude = options["latitude"];
+    String longitude = options["longitude"];
+    String ipAddress = options["ipAddress"];
+
+    if(city == null){
+      city = "null";
+    }
+    if(country == null){
+      country = "null";
+    }
+    if(latitude == null){
+      latitude = "null";
+    }
+    if(longitude == null){
+      longitude = "null";
+    }
+    if(ipAddress == null){
+      ipAddress = "null";
+    }
+
+    args.add(city);
+    args.add(country);
+    args.add(latitude);
+    args.add(longitude);
+    args.add(ipAddress);
+
+    log(args.toString());
+    final String result = await _channel.invokeMethod('setLocationInit', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+
   static Future<String> setLocation(String latitude, String longitude) async {
     if(isNullOrEmpty(latitude)){
       String error = "setLocation, latitude cannot be null or empty";

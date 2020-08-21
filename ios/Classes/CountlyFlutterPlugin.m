@@ -241,6 +241,38 @@ Boolean isInitialized = false;
         resultString = [resultString stringByAppendingString: key];
         result(resultString);
         });
+    }else if ([@"setLocationInit" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        NSString* city = [command objectAtIndex:0];
+        NSString* country = [command objectAtIndex:1];
+
+        NSString* latitudeString = [command objectAtIndex:2];
+        NSString* longitudeString = [command objectAtIndex:3];
+        NSString* ipAddress = [command objectAtIndex:4];
+
+        if(latitudeString != nil && ![latitudeString isEqualToString:@"null"] && longitudeString != nil && ![longitudeString isEqualToString:@"null"]){
+            @try{
+            
+                double latitudeDouble = [latitudeString doubleValue];
+                double longitudeDouble = [longitudeString doubleValue];
+                config.location = (CLLocationCoordinate2D){latitudeDouble,longitudeDouble};
+            }
+            @catch(NSException *exception){
+                NSLog(@"[Countly] Invalid location: %@,%@", latitudeString, longitudeString);
+            }
+        }
+        if(city != nil && ![city isEqualToString:@"null"]) {
+            config.city = city;
+        }
+        if(country != nil && ![country isEqualToString:@"null"]) {
+            config.ISOCountryCode = country;
+        }
+        if(ipAddress != nil && ![ipAddress isEqualToString:@"null"]) {
+            config.IP = ipAddress;
+        }
+        result(@"setLocationInit!");
+        });
+
     }else if ([@"setLocation" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         NSString* latitudeString = [command objectAtIndex:0];

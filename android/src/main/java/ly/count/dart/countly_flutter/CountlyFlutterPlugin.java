@@ -223,6 +223,28 @@ public class CountlyFlutterPlugin implements MethodCallHandler, FlutterPlugin, A
               this.setConfig();
               this.config.setParameterTamperingProtectionSalt(salt);
               result.success("enableParameterTamperingProtection success!");
+          } else if ("setLocationInit".equals(call.method)) {
+              this.setConfig();
+              String city = args.getString(0);
+              String country = args.getString(1);
+              String latitude = args.getString(2);
+              String longitude = args.getString(3);
+              String ipAddress = args.getString(4);
+              String latlng = null;
+              if(city.length() == 0){
+                  city = null;
+              }
+              if(country.equals("null")){
+                  country = null;
+              }
+              if(!latitude.equals("null") && !longitude.equals("null")) {
+                  latlng = latitude + "," + longitude;
+              }
+              if(ipAddress.equals("null")){
+                  ipAddress = null;
+              }
+              this.config.setLocation(country, city, latlng, ipAddress);
+              result.success("setLocationInit.");
           } else if ("setLocation".equals(call.method)) {
               String latitude = args.getString(0);
               String longitude = args.getString(1);
