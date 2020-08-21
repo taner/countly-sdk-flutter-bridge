@@ -11,11 +11,13 @@ NSString* const kCountlyFlutterSDKName = @"dart-flutterb-ios";
 FlutterResult notificationListener = nil;
 NSDictionary *lastStoredNotification = nil;
 NSMutableArray *notificationIDs = nil;        // alloc here
+NSMutableArray<CLYFeature>* countlyFeatures = nil;
 
 @implementation CountlyFlutterPlugin
 
 CountlyConfig* config = nil;
 Boolean isInitialized = false;
+NSMutableDictionary *networkRequest = nil;
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
   FlutterMethodChannel* channel = [FlutterMethodChannel
       methodChannelWithName:@"countly_flutter"
@@ -52,7 +54,7 @@ Boolean isInitialized = false;
         //should only be used for silent pushes if explicitly enabled
         //config.sendPushTokenAlways = YES;
 
-        config.features = @[CLYCrashReporting, CLYPushNotifications];
+        [self addCountlyFeature:CLYPushNotifications];
 
         if(command.count == 3){
             deviceID = [command objectAtIndex:2];
@@ -109,10 +111,36 @@ Boolean isInitialized = false;
     }else if ([@"recordView" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         NSString* recordView = [command objectAtIndex:0];
-        [Countly.sharedInstance recordView:recordView];
+        NSMutableDictionary *segments = [[NSMutableDictionary alloc] init];
+        int il=(int)command.count;
+        if(il > 2) {
+            for(int i=1;i<il;i+=2){
+                @try{
+                    segments[[command objectAtIndex:i]] = [command objectAtIndex:i+1];
+                }
+                @catch(NSException *exception){
+                    NSLog(@"[CountlyFlutter] recordView: Exception occured while parsing segments: %@", exception);
+                }
+            }
+        }
+        [Countly.sharedInstance recordView:recordView segmentation:segments];
         result(@"recordView Sent!");
         });
-    }else if ([@"setLoggingEnabled" isEqualToString:call.method]) {
+    }else if ([@"setAutomaticViewTracking" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        BOOL boolean = [[command objectAtIndex:0] boolValue];
+        if(boolean) {
+            [self addCountlyFeature:CLYAutoViewTracking];
+        }
+        else {
+            [self removeCountlyFeature:CLYAutoViewTracking];
+        }
+        [Countly.sharedInstance setIsAutoViewTrackingActive:boolean];
+        });
+        result(@"setAutomaticViewTracking!");
+
+    }
+    else if ([@"setLoggingEnabled" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         config.enableDebug = YES;
         result(@"setLoggingEnabled!");
@@ -175,8 +203,14 @@ Boolean isInitialized = false;
 
     }else if ([@"eventSendThreshold" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
-        config.eventSendThreshold = 1;
-        result(@"eventSendThreshold!");
+        @try{
+            int limit = [[command objectAtIndex:1] intValue];
+            config.eventSendThreshold = limit;
+            result(@"eventSendThreshold!");
+        }
+        @catch(NSException *exception){
+            NSLog(@"[CountlyFlutter] Exception occurred at eventSendThreshold method: %@", exception);
+        };
         });
 
     }else if ([@"storedRequestsLimit" isEqualToString:call.method]) {
@@ -185,6 +219,11 @@ Boolean isInitialized = false;
         result(@"storedRequestsLimit!");
         });
 
+    }else if ([@"getCurrentDeviceId" isEqualToString:call.method]) {
+        NSString* deviceId = [Countly.sharedInstance deviceID];
+        result(deviceId);
+    }else if ([@"getDeviceIdAuthor" isEqualToString:call.method]) {
+        result(@"Not implemented for iOS");
     }else if ([@"changeDeviceId" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         NSString* newDeviceID = [command objectAtIndex:0];
@@ -204,8 +243,9 @@ Boolean isInitialized = false;
 
     }else if ([@"setHttpPostForced" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
-        config.alwaysUsePOST = YES;
-        result(@"setHttpPostForced!");
+            BOOL boolean = [[command objectAtIndex:0] boolValue];
+            config.alwaysUsePOST = boolean;
+            result(@"setHttpPostForced!");
         });
 
     }else if ([@"enableParameterTamperingProtection" isEqualToString:call.method]) {
@@ -301,6 +341,7 @@ Boolean isInitialized = false;
     }else if ([@"enableCrashReporting" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         // config.features = @[CLYCrashReporting];
+        [self addCountlyFeature:CLYCrashReporting];
         result(@"enableCrashReporting!");
         });
 
@@ -330,6 +371,15 @@ Boolean isInitialized = false;
         result(@"logException!");
         });
 
+    }else if ([@"setCustomCrashSegment" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        for(int i=0,il=(int)command.count;i<il;i+=2){
+            dict[[command objectAtIndex:i]] = [command objectAtIndex:i+1];
+        }
+        config.crashSegmentation = dict;
+        });
+        result(@"setCustomCrashSegment!");
     }else if ([@"askForNotificationPermission" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
             [Countly.sharedInstance askForNotificationPermission];
@@ -475,82 +525,13 @@ Boolean isInitialized = false;
 
     }else if ([@"giveConsent" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
-        NSString* consent = @"";
-        // NSMutableDictionary *giveConsentAll = [[NSMutableDictionary alloc] init];
-        for(int i=0,il=(int)command.count; i<il;i++){
-            consent = [command objectAtIndex:i];
-            if([@"sessions" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentSessions];
-            }
-            if([@"events" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentEvents];
-            }
-            if([@"users" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentUserDetails];
-            }
-            if([@"crashes" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentCrashReporting];
-            }
-            if([@"push" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentPushNotifications];
-            }
-            if([@"location" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentLocation];
-            }
-            if([@"views" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentViewTracking];
-            }
-            if([@"attribution" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentAttribution];
-            }
-            if([@"star-rating" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentStarRating];
-            }
-            if([@"accessory-devices" isEqualToString:consent]){
-                [Countly.sharedInstance giveConsentForFeature:CLYConsentAppleWatch];
-            }
-        }
+        [Countly.sharedInstance giveConsentForFeatures:command];
         result(@"giveConsent!");
         });
 
     }else if ([@"removeConsent" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
-        NSString* consent = @"";
-        for(int i=0,il=(int)command.count; i<il;i++){
-            consent = [command objectAtIndex:i];
-            if([@"sessions" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentSessions];
-            }
-            if([@"events" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentEvents];
-            }
-            if([@"users" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentUserDetails];
-            }
-            if([@"crashes" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentCrashReporting];
-            }
-            if([@"push" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentPushNotifications];
-            }
-            if([@"location" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentLocation];
-            }
-            if([@"views" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentViewTracking];
-            }
-            if([@"attribution" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentAttribution];
-            }
-            if([@"star-rating" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentStarRating];
-            }
-            if([@"accessory-devices" isEqualToString:consent]){
-                [Countly.sharedInstance cancelConsentForFeature:CLYConsentAppleWatch];
-            }
-        }
-
-        NSString *resultString = @"removeConsent for: ";
+        [Countly.sharedInstance cancelConsentForFeatures:command];
         result(@"removeConsent!");
         });
 
@@ -713,8 +694,71 @@ Boolean isInitialized = false;
                 result([NSString stringWithFormat: @"Rating:%d", (int)rating]);
             }];
         });
-    }
-    else {
+    } else if ([@"startTrace" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            NSString* traceKey = [command objectAtIndex:0];
+            [Countly.sharedInstance startCustomTrace: traceKey];
+        });
+        result(@"startTrace: success");
+    } else if ([@"cancelTrace" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            NSString* traceKey = [command objectAtIndex:0];
+            [Countly.sharedInstance cancelCustomTrace: traceKey];
+        });
+        result(@"cancelTrace: success");
+    } else if ([@"clearAllTraces" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            [Countly.sharedInstance clearAllCustomTraces];
+        });
+        result(@"clearAllTrace: success");
+    } else if ([@"endTrace" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            NSString* traceKey = [command objectAtIndex:0];
+            NSMutableDictionary *metrics = [[NSMutableDictionary alloc] init];
+            for(int i=1,il=(int)command.count;i<il;i+=2){
+                @try{
+                    metrics[[command objectAtIndex:i]] = [command objectAtIndex:i+1];
+                }
+                @catch(NSException *exception){
+                    NSLog(@"[CountlyFlutter] Exception occurred while parsing metric: %@", exception);
+                }
+            }
+            [Countly.sharedInstance endCustomTrace: traceKey metrics: metrics];
+        });
+        result(@"endTrace: success");
+    } else if ([@"recordNetworkTrace" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            @try{
+                NSString* networkTraceKey = [command objectAtIndex:0];
+                int responseCode = [[command objectAtIndex:1] intValue];
+                int requestPayloadSize = [[command objectAtIndex:2] intValue];
+                int responsePayloadSize = [[command objectAtIndex:3] intValue];
+                int startTime = [[command objectAtIndex:4] intValue];
+                int endTime = [[command objectAtIndex:5] intValue];
+                [Countly.sharedInstance recordNetworkTrace: networkTraceKey requestPayloadSize: requestPayloadSize responsePayloadSize: responsePayloadSize responseStatusCode: responseCode startTime: startTime endTime: endTime];
+            }
+            @catch(NSException *exception){
+                NSLog(@"[CountlyFlutter] Exception occured at recordNetworkTrace method: %@", exception);
+            }
+        });
+        result(@"recordNetworkTrace: success");
+    } else if ([@"enableApm" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            config.enablePerformanceMonitoring = YES;
+        });
+        result(@"enableApm: success");
+   
+    } else if ([@"throwNativeException" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            NSException *e = [NSException exceptionWithName:@"Native Exception Crash!" reason:@"Throw Native Exception..." userInfo:nil];
+            @throw e;
+        });
+    }else if ([@"enableAttribution" isEqualToString:call.method]) {
+           dispatch_async(dispatch_get_main_queue(), ^ {
+               config.enableAttribution = YES;
+           });
+           result(@"enableAttribution: success");
+    } else {
         result(FlutterMethodNotImplemented);
     }
 }
@@ -747,5 +791,27 @@ Boolean isInitialized = false;
         [Countly.sharedInstance recordEvent:@"[CLY]_push_action" segmentation: segmentation];
     }
     notificationIDs = nil;
+}
+
+- (void)addCountlyFeature:(CLYFeature)feature
+{
+    if(countlyFeatures == nil) {
+        countlyFeatures = [[NSMutableArray alloc] init];
+    }
+    if(![countlyFeatures containsObject:feature]) {
+        [countlyFeatures addObject:feature];
+        config.features = countlyFeatures;
+    }
+}
+
+- (void)removeCountlyFeature:(CLYFeature)feature
+{
+    if(countlyFeatures == nil) {
+        return;
+    }
+    if(![countlyFeatures containsObject:feature]) {
+        [countlyFeatures removeObject:feature];
+        config.features = countlyFeatures;
+    }
 }
 @end

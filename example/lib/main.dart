@@ -5,7 +5,14 @@ import 'dart:convert';
 
 import 'package:countly_flutter/countly_flutter.dart';
 
-void main() => runApp(MyApp());
+/// This or a similar call needs to added to catch and report Dart Errors to Countly,
+/// You need to run app inside a Zone
+/// and provide the [Countly.recordDartError] callback for [onError()]
+void main() {
+  runZonedGuarded<Future<void>>(() async {
+    runApp(MyApp());
+  }, Countly.recordDartError);
+}
 
 class MyApp extends StatefulWidget {
   @override
@@ -18,14 +25,38 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     Countly.isInitialized().then((bool isInitialized){
       if(!isInitialized){
-        Countly.onNotification((String notification){
-          print("The notification");
-          print(notification);
-        });
-        Countly.pushTokenType(Countly.messagingMode["TEST"]);
-        Countly.setLoggingEnabled(true);
-        Countly.enableCrashReporting();
-        Countly.init(SERVER_URL, APP_KEY);
+
+        /// Recommended settings for Countly initialisation
+        Countly.setLoggingEnabled(true); // Enable countly internal debugging logs
+        Countly.enableCrashReporting(); // Enable crash reporting to report unhandled crashes to Countly
+        Countly.setRequiresConsent(true); // Set that consent should be required for features to work.
+        Countly.setAutomaticViewTracking(true); // Enable automatic view tracking
+
+        /// Optional settings for Countly initialisation
+        Countly.enableParameterTamperingProtection("salt"); // Set the optional salt to be used for calculating the checksum of requested data which will be sent with each request
+        Countly.setHttpPostForced(false); // Set to "true" if you want HTTP POST to be used for all requests
+        Countly.enableApm(); // Enable APM features, which includes the recording of app start time.
+        Countly.enableAttribution(); // Enable to measure your marketing campaign performance by attributing installs from specific campaigns.
+        Countly.setRemoteConfigAutomaticDownload((result){
+          print(result);
+        }); // Set Automatic value download happens when the SDK is initiated or when the device ID is changed.
+        var segment = {"Key": "Value"};
+        Countly.setCustomCrashSegment(segment); // Set optional key/value segment added for crash reports.
+
+        Countly.init(SERVER_URL, APP_KEY).then((value){
+
+          /// Push notifications settings
+          /// Should be call after init
+          Countly.pushTokenType(Countly.messagingMode["TEST"]); // Set messaging mode for push notifications
+          Countly.onNotification((String notification){
+            print("The notification");
+            print(notification);
+          }); // Set callback to receive push notifications
+          Countly.askForNotificationPermission(); // This method will ask for permission, enables push notification and send push token to countly server.;
+
+          Countly.giveAllConsent(); // give consent for all features, should be call after init
+//        Countly.giveConsent(["events", "views"]); // give consent for some specific features, should be call after init.
+        }); // Initialize the countly SDK.
       }else{
         print("Countly: Already initialized.");
       }
@@ -33,24 +64,10 @@ class _MyAppState extends State<MyApp> {
   }
 
   // ignore: non_constant_identifier_names
-  static String SERVER_URL = "https://trinisoft.count.ly";
+  static String SERVER_URL = "https://try.count.ly";
   // ignore: non_constant_identifier_names
-  static String APP_KEY = "f0b2ac6919f718a13821575db28c0e2971e05ec5";
+  static String APP_KEY = "YOUR_API_KEY";
 
-  onInit(){
-    Countly.pushTokenType(Countly.messagingMode["TEST"]);
-    Countly.setLoggingEnabled(true);
-    Countly.enableCrashReporting();
-    Countly.init(SERVER_URL, APP_KEY);
-  }
-  initWithID(){
-    Countly.setLoggingEnabled(true);
-    Countly.init(SERVER_URL, APP_KEY, "1234567890");
-  }
-  initWithTemporaryDeviceID(){
-    Countly.setLoggingEnabled(true);
-    Countly.init(SERVER_URL, APP_KEY, Countly.deviceIDType["TemporaryDeviceID"]);
-  }
   enableTemporaryIdMode(){
     Countly.changeDeviceId(Countly.deviceIDType["TemporaryDeviceID"], false);
   }
@@ -156,7 +173,11 @@ class _MyAppState extends State<MyApp> {
     });
   }
   recordViewHome(){
-    Countly.recordView("HomePage");
+    Map<String, Object> segments = {
+      "Key_1": "Value_1",
+      "Key_2": "Value_2"
+    };
+    Countly.recordView("HomePage", segments);
   }
   recordViewDashboard(){
     Countly.recordView("Dashboard");
@@ -267,16 +288,13 @@ class _MyAppState extends State<MyApp> {
     Countly.pullValue("pushValue", "morning");
   }
   //
-  setRequiresConsent(){
-    Countly.setRequiresConsent(true);
-  }
   giveMultipleConsent(){
     Countly.giveConsent(["events", "views", "star-rating", "crashes"]);
   }
   removeMultipleConsent(){
     Countly.removeConsent(["events", "views", "star-rating", "crashes"]);
   }
-  giveAllConsent(){
+  giveAllConsent() {
     Countly.giveAllConsent();
   }
   removeAllConsent(){
@@ -310,7 +328,9 @@ class _MyAppState extends State<MyApp> {
   giveConsentStarRating(){
     Countly.giveConsent(["star-rating"]);
   }
-
+  giveConsentAPM(){
+  Countly.giveConsent(["apm"]);
+  }
 
   removeConsentsessions(){
     Countly.removeConsent(["sessions"]);
@@ -339,14 +359,12 @@ class _MyAppState extends State<MyApp> {
   removeConsentstarRating(){
     Countly.removeConsent(["star-rating"]);
   }
+  removeConsentAPM(){
+    Countly.removeConsent(["apm"]);
+  }
 
   askForNotificationPermission(){
     Countly.askForNotificationPermission();
-  }
-  setRemoteConfigAutomaticDownload(){
-    Countly.setRemoteConfigAutomaticDownload((result){
-      print(result);
-    });
   }
   remoteConfigUpdate(){
     Countly.remoteConfigUpdate((result){
@@ -417,9 +435,6 @@ class _MyAppState extends State<MyApp> {
     Countly.setOptionalParametersForInitialization(options);
   }
 
-  enableCrashReporting(){
-    Countly.enableCrashReporting();
-  }
   addCrashLog(){
     Countly.enableCrashReporting();
     Countly.addCrashLog("User Performed Step A");
@@ -429,9 +444,43 @@ class _MyAppState extends State<MyApp> {
       timer.cancel();
     });
   }
-
-  throwException(){
+  causeException(){
     Map<String, Object> options = json.decode("This is a on purpose error.");
+  }
+
+  throwException() {
+    throw new StateError('This is an thrown Dart exception.');
+  }
+
+  throwNativeException() {
+    Countly.throwNativeException();
+  }
+
+  throwExceptionAsync() async {
+    foo() async {
+      throw new StateError('This is an async Dart exception.');
+    }
+    bar() async {
+      await foo();
+    }
+    await bar();
+  }
+
+  recordExceptionManually() {
+    Countly.logException("This is a manually created exception", true, null);
+  }
+
+  dividedByZero() {
+    try {
+      int firstInput = 20;
+      int secondInput = 0;
+      int result = firstInput ~/ secondInput;
+      print('The result of $firstInput divided by $secondInput is $result');
+    } catch (e, s) {
+      print('Exception occurs: $e');
+      print('STACK TRACE\n: $s');
+      Countly.logExceptionEx(e, true, stacktrace: s);
+    }
   }
 
   setLoggingEnabled(){
@@ -443,14 +492,45 @@ class _MyAppState extends State<MyApp> {
   askForFeedback(){
     Countly.askForFeedback("5e391ef47975d006a22532c0", "Close");
   }
-  setHttpPostForced(){
-    Countly.setHttpPostForced(true);
-  }
   setLocation(){
     Countly.setLocation("-33.9142687","18.0955802");
   }
 
-
+  // APM Examples
+  startTrace(){
+    String traceKey = "Trace Key";
+    Countly.startTrace(traceKey);
+  }
+  endTrace(){
+    String traceKey = "Trace Key";
+    Map<String, int> customMetric = {
+      "ABC": 1233,
+      "C44C": 1337
+    };
+    Countly.endTrace(traceKey, customMetric);
+  }
+  List<int> successCodes = [100, 101, 200, 201, 202, 205, 300, 301, 303, 305];
+  List<int> failureCodes = [400, 402, 405, 408, 500, 501, 502, 505];
+  recordNetworkTraceSuccess(){
+    String networkTraceKey = "api/endpoint.1";
+    var rnd = new Random();
+    int responseCode = successCodes[rnd.nextInt(successCodes.length)];
+    int requestPayloadSize = rnd.nextInt(700) + 200;
+    int responsePayloadSize = rnd.nextInt(700) + 200;
+    int startTime = new DateTime.now().millisecondsSinceEpoch;
+    int endTime = startTime + 500;
+    Countly.recordNetworkTrace(networkTraceKey, responseCode, requestPayloadSize, responsePayloadSize, startTime, endTime);
+  }
+  recordNetworkTraceFailure(){
+    String networkTraceKey = "api/endpoint.1";
+    var rnd = new Random();
+    int responseCode = failureCodes[rnd.nextInt(failureCodes.length)];
+    int requestPayloadSize = rnd.nextInt(700) + 250;
+    int responsePayloadSize = rnd.nextInt(700) + 250;
+    int startTime = new DateTime.now().millisecondsSinceEpoch;
+    int endTime = startTime + 500;
+    Countly.recordNetworkTrace(networkTraceKey, responseCode, requestPayloadSize, responsePayloadSize, startTime, endTime);
+  }
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -461,9 +541,6 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: SingleChildScrollView(child:
             Column(children: <Widget>[
-              MyButton(text: "Init", color: "green", onPressed: onInit),
-              MyButton(text: "Init with ID", color: "green", onPressed: initWithID),
-              MyButton(text: "Init with TemporaryDeviceID", color: "green", onPressed: initWithTemporaryDeviceID),
               MyButton(text: "Start", color: "green", onPressed: start),
               MyButton(text: "Stop", color: "red", onPressed: stop),
 
@@ -494,7 +571,6 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "UserData.pushValue", color: "teal", onPressed: pushValue),
               MyButton(text: "UserData.pullValue", color: "teal", onPressed: pullValue),
 
-              MyButton(text: "Init Consent", color: "blue", onPressed: setRequiresConsent),
               MyButton(text: "Give multiple consent", color: "blue", onPressed: giveMultipleConsent),
               MyButton(text: "Remove multiple consent", color: "blue", onPressed: removeMultipleConsent),
               MyButton(text: "Give all Consent", color: "blue", onPressed: giveAllConsent),
@@ -509,6 +585,7 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "Give Consent Users", color: "blue", onPressed: giveConsentUsers),
               MyButton(text: "Give Consent Push", color: "blue", onPressed: giveConsentPush),
               MyButton(text: "Give Consent starRating", color: "blue", onPressed: giveConsentStarRating),
+              MyButton(text: "Give Consent Performance", color: "blue", onPressed: giveConsentAPM),
 
 
               MyButton(text: "Remove Consent Sessions", color: "blue", onPressed: removeConsentsessions),
@@ -520,10 +597,10 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "Remove Consent Users", color: "blue", onPressed: removeConsentusers),
               MyButton(text: "Remove Consent Push", color: "blue", onPressed: removeConsentpush),
               MyButton(text: "Remove Consent starRating", color: "blue", onPressed: removeConsentstarRating),
+              MyButton(text: "Remove Consent Performance", color: "blue", onPressed: removeConsentAPM),
 
 
 
-              MyButton(text: "Countly.setRemoteConfigAutomaticDownload", color: "purple", onPressed: setRemoteConfigAutomaticDownload),
               MyButton(text: "Countly.remoteConfigUpdate", color: "purple", onPressed: remoteConfigUpdate),
               MyButton(text: "Countly.updateRemoteConfigForKeysOnly", color: "purple", onPressed: updateRemoteConfigForKeysOnly),
               MyButton(text: "Countly.updateRemoteConfigExceptKeys", color: "purple", onPressed: updateRemoteConfigExceptKeys),
@@ -541,14 +618,25 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "Enable Parameter Tapmering Protection", color: "violet", onPressed: enableParameterTamperingProtection),
               MyButton(text: "City, State, and Location", color: "violet", onPressed: setOptionalParametersForInitialization),
               MyButton(text: "setLocation", color: "violet", onPressed: setLocation),
+
               MyButton(text: "Send Crash Report", color: "violet", onPressed: addCrashLog),
+              MyButton(text: "Cause Exception", color: "violet", onPressed: causeException),
               MyButton(text: "Throw Exception", color: "violet", onPressed: throwException),
+
+              MyButton(text: "Throw Exception Async", color: "violet", onPressed: throwExceptionAsync),
+              MyButton(text: "Throw Native Exception", color: "violet", onPressed: throwNativeException),
+              MyButton(text: "Record Exception Manually", color: "violet", onPressed: recordExceptionManually),
+              MyButton(text: "Divided By Zero Exception", color: "violet", onPressed: dividedByZero),
+
               MyButton(text: "Enabling logging", color: "violet", onPressed: setLoggingEnabled),
 
               MyButton(text: "Open rating modal", color: "orange", onPressed: askForStarRating),
               MyButton(text: "Open feedback modal", color: "orange", onPressed: askForFeedback),
 
-
+              MyButton(text: "Start Trace", color: "black", onPressed: startTrace),
+              MyButton(text: "End Trace", color: "black", onPressed: endTrace),
+              MyButton(text: "Record Network Trace Success", color: "black", onPressed: recordNetworkTraceSuccess),
+              MyButton(text: "Record Network Trace Failure", color: "black", onPressed: recordNetworkTraceFailure),
             ],),
           )
         ),

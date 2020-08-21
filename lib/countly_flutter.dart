@@ -13,9 +13,18 @@ class Countly {
 
   // static variable
   static Function listenerCallback;
-  static bool isDebug = false;
+
+  /// Used to determine if log messages should be printed to the console
+  /// its value should be updated from [setLoggingEnabled(bool flag)].
+  static bool _isDebug = false;
+
   static final String TAG = "CountlyFlutter";
-  static bool enableCrashReportingFlag = false;
+
+  /// Flag to determine if crash logging functionality should be enabled
+  /// If false the intercepted crashes will be ignored
+  /// Set true when user enabled crash logging
+  static bool _enableCrashReportingFlag = false;
+
   static Map<String, Object> messagingMode = {"TEST": "1", "PRODUCTION": "0", "ADHOC": "2"};
   static Map<String, Object> deviceIDType = {
     "TemporaryDeviceID": "TemporaryDeviceID"
@@ -23,7 +32,7 @@ class Countly {
 
   static log(String message, {LogLevel logLevel = LogLevel.DEBUG}) async {
     String logLevelStr = describeEnum(logLevel);
-    if(isDebug){
+    if(_isDebug){
       print('[$TAG] ${logLevelStr}: ${message}');
     }
   }
@@ -102,8 +111,12 @@ class Countly {
     return result;
   }
 
-  ////// 001
-  static Future<String> recordView(String view) async {
+  /// Record custom view to Countly.
+  ///
+  /// [String view] - name of the view
+  /// [Map<String, Object> segmentation] - allows to add optional segmentation,
+  /// Supported data type for segmentation values are String, int, double and bool
+  static Future<String> recordView(String view, [Map<String, Object> segmentation]) async {
     if(isNullOrEmpty(view)){
       String error = "recordView, Trying to record view with null or empty view name, ignoring request";
       log(error);
@@ -111,8 +124,32 @@ class Countly {
     }
     List <String> args = [];
     args.add(view);
+    if(segmentation != null){
+      segmentation.forEach((k, v){
+        if(v is String || v is int || v is double || v is bool) {
+          args.add(k);
+          args.add(v.toString());
+        }
+        else {
+          log("recordView, unsupported segmentation data type [${v.runtimeType}], View [$view]", logLevel: LogLevel.WARNING);
+        }
+      });
+    }
     log(args.toString());
     final String result = await _channel.invokeMethod('recordView', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  
+  /// Enable automatic view tracking
+  /// Should be call before Countly init
+  static Future<String> setAutomaticViewTracking(bool flag) async {
+    List <String> args = [];
+    args.add(flag.toString());
+    log(args.toString());
+    final String result = await _channel.invokeMethod('setAutomaticViewTracking', <String, dynamic>{
       'data': json.encode(args)
     });
     log(result);
@@ -168,6 +205,8 @@ class Countly {
     return result;
   }
 
+  /// This method will ask for permission, enables push notification and send push token to countly server.
+  /// Should be call after Countly init
   static Future<String> askForNotificationPermission() async {
     List <String> args = [];
     log(args.toString());
@@ -178,6 +217,8 @@ class Countly {
     return result;
   }
 
+  /// Set Push notification messaging mode and callbacks for push notifications
+  /// Should be call after Countly init
   static Future<String> pushTokenType(String tokenType) async {
     if(isNullOrEmpty(tokenType)){
       String error = "pushTokenType, tokenType cannot be null or empty";
@@ -194,8 +235,9 @@ class Countly {
     return result;
   }
 
-
-  static Future<String> onNotification(Function callback) async {
+  /// Set callback to receive push notifications
+  /// @param { callback listner } callback
+static Future<String> onNotification(Function callback) async {
     List <String> args = [];
     listenerCallback = callback;
     log("registerForNotification");
@@ -250,8 +292,11 @@ class Countly {
     return result;
   }
 
-  static Future<String> eventSendThreshold() async {
+  /// Events get grouped together and are sent either every minute or after the unsent event count reaches a threshold. By default it is 10
+  /// Should be call before Countly init
+  static Future<String> eventSendThreshold(int limit) async {
     List <String> args = [];
+    args.add(limit.toString());
     log(args.toString());
     final String result = await _channel.invokeMethod('eventSendThreshold', <String, dynamic>{
       'data': json.encode(args)
@@ -308,6 +353,23 @@ class Countly {
     log(result);
     return result;
   }
+  
+  /// Get currently used device Id.
+  /// Should be call after Countly init
+  static Future<String> getCurrentDeviceId() async {
+    isInitialized().then((bool isInitialized) async {
+      if(!isInitialized) {
+        log('getCurrentDeviceId, init must be called before getCurrentDeviceId',logLevel: LogLevel.WARNING);
+        return "init must be called before getCurrentDeviceId";
+      }
+      List <String> args = [];
+      final String result = await _channel.invokeMethod('getCurrentDeviceId', <String, dynamic>{
+        'data': json.encode(args)
+      });
+      log(result);
+      return result;
+    });
+  }
 
   static Future<String> changeDeviceId(String newDeviceID, bool onServer) async {
     if(isNullOrEmpty(newDeviceID)){
@@ -318,9 +380,9 @@ class Countly {
     List <String> args = [];
     String onServerString;
     if(onServer == false){
-        onServerString = "0";
+      onServerString = "0";
     }else{
-        onServerString = "1";
+      onServerString = "1";
     }
     newDeviceID = newDeviceID.toString();
     args.add(newDeviceID);
@@ -348,10 +410,11 @@ class Countly {
     log(result);
     return result;
   }
-
+  /// Set to true if you want to enable countly internal debugging logs
+  /// Should be call before Countly init
   static Future<String> setLoggingEnabled(bool flag) async {
     List <String> args = [];
-    isDebug = flag;
+    _isDebug = flag;
     args.add(flag.toString());
     log(args.toString());
     final String result = await _channel.invokeMethod('setLoggingEnabled', <String, dynamic>{
@@ -361,6 +424,8 @@ class Countly {
     return result;
   }
 
+  /// Set the optional salt to be used for calculating the checksum of requested data which will be sent with each request, using the &checksum field
+  /// Should be call before Countly init
   static Future<String> enableParameterTamperingProtection(String salt) async {
     if(isNullOrEmpty(salt)){
       String error = "enableParameterTamperingProtection, salt cannot be null or empty";
@@ -376,6 +441,9 @@ class Countly {
     log(result);
     return result;
   }
+
+  /// Set to "true" if you want HTTP POST to be used for all requests
+  /// Should be call before Countly init
   static Future<String> setHttpPostForced(bool isEnabled) async {
     List <String> args = [];
     args.add(isEnabled.toString());
@@ -639,7 +707,8 @@ class Countly {
     return result;
   }
 
-  //setRequiresConsent
+  /// Set that consent should be required for features to work.
+  /// Should be call before Countly init
   static Future<String> setRequiresConsent(bool flag) async {
     List <String> args = [];
     args.add(flag.toString());
@@ -686,6 +755,9 @@ class Countly {
     log(result);
     return result;
   }
+
+  /// Give consent for all features
+  /// Should be call after Countly init
   static Future<String> giveAllConsent() async {
     List <String> args = [];
 
@@ -707,6 +779,8 @@ class Countly {
     return result;
   }
 
+  /// Set Automatic value download happens when the SDK is initiated or when the device ID is changed.
+  /// Should be call before Countly init
   static Future<String> setRemoteConfigAutomaticDownload(Function callback) async {
     List <String> args = [];
     log(args.toString());
@@ -872,18 +946,24 @@ class Countly {
     return result;
   }
 
-  static Future<String> enableCrashReporting() async {
-    FlutterError.onError = (FlutterErrorDetails details, {bool forceReport = false}) {
-      try {
-        Countly.logException("${details.exception} \n ${details.stack}", true, {});
-      } catch (e) {
-        print('Sending report to sentry.io failed: $e');
-      } finally {
-        FlutterError.dumpErrorToConsole(details, forceReport: forceReport);
-      }
-    };
+  /// Call used for testing error handling
+  /// Should not be used 
+  static Future<String> throwNativeException() async {
     List <String> args = [];
-    enableCrashReportingFlag = true;
+    log(args.toString());
+    final String result = await _channel.invokeMethod('throwNativeException', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+
+  /// Enable crash reporting to report uncaught errors to Countly.
+  /// Should be call before Countly init
+  static Future<String> enableCrashReporting() async {
+    FlutterError.onError = _recordFlutterError;
+    List <String> args = [];
+    _enableCrashReportingFlag = true;
     log(args.toString());
     final String result = await _channel.invokeMethod('enableCrashReporting', <String, dynamic>{
       'data': json.encode(args)
@@ -892,7 +972,17 @@ class Countly {
     return result;
   }
 
-  static Future<String> logException(String exception,bool nonfatal, Map<String, Object> segmentation) async {
+  /// Report a handled or unhandled exception/error to Countly.
+  ///
+  /// This call does not add a stacktrace automatically
+  /// if it's needed, it should already be added to the [exception] variable
+  ///
+  /// A potential use case would be to provide [exception.toString()]
+  ///
+  /// [String exception] - the exception / crash information sent to the server
+  /// [bool nonfatal] - reports if the error was fatal or not
+  /// [Map<String, Object> segmentation] - allows to add optional segmentation
+  static Future<String> logException(String exception, bool nonfatal, [Map<String, Object> segmentation]) async {
     List <String> args = [];
     if(exception == null) {
       String error = "logException, provided exception was null, returning";
@@ -907,12 +997,197 @@ class Countly {
         args.add(v.toString());
       });
     }
-    log(args.toString());
     final String result = await _channel.invokeMethod('logException', <String, dynamic>{
       'data': json.encode(args)
     });
     log(result);
     return result;
   }
+  /// Set optional key/value segment added for crash reports.
+  /// Should be call before Countly init
+  static Future<String> setCustomCrashSegment(Map<String, Object> segments) async {
+    List <String> args = [];
+    if(segments != null){
+      segments.forEach((k, v){
+        args.add(k.toString());
+        args.add(v.toString());
+      });
+    }
+    log(args.toString());
+    final String result = await _channel.invokeMethod('setCustomCrashSegment', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  static Future<String> startTrace(String traceKey) async {
+    List <String> args = [];
+    args.add(traceKey);
+    log(args.toString());
+    final String result = await _channel.invokeMethod('startTrace', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
 
+  static Future<String> cancelTrace(String traceKey) async {
+    List <String> args = [];
+    args.add(traceKey);
+    log(args.toString());
+    final String result = await _channel.invokeMethod('cancelTrace', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+
+  static Future<String> clearAllTraces() async {
+    List <String> args = [];
+    final String result = await _channel.invokeMethod('clearAllTraces', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  static Future<String> endTrace(String traceKey, Map<String, int> customMetric) async {
+    List <String> args = [];
+    args.add(traceKey);
+    if(customMetric != null){
+      customMetric.forEach((k, v){
+        args.add(k.toString());
+        args.add(v.toString());
+      });
+    }
+    log(args.toString());
+    final String result = await _channel.invokeMethod('endTrace', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  static Future<String> recordNetworkTrace(String networkTraceKey, int responseCode, int requestPayloadSize, int responsePayloadSize, int startTime, int endTime) async {
+    List <String> args = [];
+    args.add(networkTraceKey);
+    args.add(responseCode.toString());
+    args.add(requestPayloadSize.toString());
+    args.add(responsePayloadSize.toString());
+    args.add(startTime.toString());
+    args.add(endTime.toString());
+    log(args.toString());
+    final String result = await _channel.invokeMethod('recordNetworkTrace', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+
+  /// Enable APM features, which includes the recording of app start time.
+  /// Should be call before Countly init
+  static Future<String> enableApm() async {
+    List <String> args = [];
+    log(args.toString());
+    final String result = await _channel.invokeMethod('enableApm', <String, dynamic>{
+            'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  /// Report a handled or unhandled exception/error to Countly.
+  ///
+  /// The exception is provided with an [Exception] object
+  /// If no stack trace is provided, [StackTrace.current] will be used
+  ///
+  /// [String exception] - the exception that is recorded
+  /// [bool nonfatal] - reports if the exception was fatal or not
+  /// [StackTrace stacktrace] - stacktrace for the crash
+  /// [Map<String, Object> segmentation] - allows to add optional segmentation
+  static Future<String> logExceptionEx(Exception exception, bool nonfatal, {StackTrace stacktrace, Map<String, Object> segmentation}) async {
+    stacktrace ??= StackTrace.current ?? StackTrace.fromString('');
+    logException("${exception.toString()}\n\n$stacktrace", nonfatal, segmentation).then((String result) {
+      return result;
+    });
+  }
+
+  /// Report a handled or unhandled exception/error to Countly.
+  ///
+  /// The exception/error is provided with a string message
+  /// If no stack trace is provided, [StackTrace.current] will be used
+  ///
+  /// [String message] - the error / crash information sent to the server
+  /// [bool nonfatal] - reports if the error was fatal or not
+  /// [StackTrace stacktrace] - stacktrace for the crash
+  /// [Map<String, Object> segmentation] - allows to add optional segmentation
+  static Future<String> logExceptionManual(String message, bool nonfatal, {StackTrace stacktrace, Map<String, Object> segmentation}) async {
+    stacktrace ??= StackTrace.current ?? StackTrace.fromString('');
+    logException("$message\n\n$stacktrace", nonfatal, segmentation).then((String result) {
+      return result;
+    });
+  }
+
+  /// Internal callback to record "FlutterError.onError" errors
+  ///
+  /// Must call [enableCrashReporting()] to enable it
+  static Future<void> _recordFlutterError(FlutterErrorDetails details) async {
+    log('_recordFlutterError, Flutter error caught by Countly:');
+    if(!_enableCrashReportingFlag) {
+      log('_recordFlutterError, Crash Reporting must be enabled to report crash on Countly',logLevel: LogLevel.WARNING);
+      return;
+    }
+
+    _internalRecordError(details.exceptionAsString(), details.stack);
+  }
+
+  /// Callback to catch and report Dart errors, [enableCrashReporting()] must call before [init] to make it work.
+  ///
+  /// This callback has to be provided when the app is about to be run.
+  /// It has to be done inside a custom Zone by providing [Countly.recordDartError] in onError() callback.
+  ///
+  /// ```
+  /// void main() {
+  ///   runZonedGuarded<Future<void>>(() async {
+  ///     runApp(MyApp());
+  ///   }, Countly.recordDartError);
+  /// }
+  ///
+  static Future<void> recordDartError(dynamic exception, StackTrace stack, {dynamic context}) async {
+    log('recordError, Error caught by Countly :');
+    if(!_enableCrashReportingFlag) {
+      log('recordError, Crash Reporting must be enabled to report crash on Countly',logLevel: LogLevel.WARNING);
+      return;
+    }
+    _internalRecordError(exception, stack);
+  }
+
+  /// A common call for crashes coming from [_recordFlutterError] and [recordDartError]
+  ///
+  /// They are then further reported to countly
+  static Future<void> _internalRecordError(dynamic exception, StackTrace stack) async {
+    isInitialized().then((bool isInitialized){
+      if(!isInitialized) {
+        log('_internalRecordError, countly is not initialized',logLevel: LogLevel.WARNING);
+        return;
+      }
+
+      log('_internalRecordError, Exception : ${exception.toString()}');
+      if (stack != null) log('\n_internalRecordError, Stack : $stack');
+
+      stack ??= StackTrace.fromString('');
+      try {
+        logException('${exception.toString()}\n\n$stack', true);
+      } catch (e) {
+        log('Sending crash report to Countly failed: $e');
+      }
+    });
+  }
+  /// Enable campaign attribution reporting to Countly.
+  /// Should be call before Countly init
+  static Future<String> enableAttribution() async {
+    List <String> args = [];
+    final String result = await _channel.invokeMethod('enableAttribution', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
 }
