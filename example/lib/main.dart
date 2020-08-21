@@ -41,6 +41,7 @@ class _MyAppState extends State<MyApp> {
         var segment = {"Key": "Value"};
         Countly.setCustomCrashSegment(segment);
         Countly.eventSendThreshold(1);
+        Countly.setAutoTrackingUseShortName(true);
         Countly.init(SERVER_URL, APP_KEY);
         Countly.giveAllConsent();
       }else{
@@ -65,6 +66,9 @@ class _MyAppState extends State<MyApp> {
   }
   stop(){
     Countly.stop();
+  }
+  onConfigurationChanged(){
+    Countly.onConfigurationChanged();
   }
   basicEvent(){
     // example for basic event
@@ -158,6 +162,10 @@ class _MyAppState extends State<MyApp> {
       timer.cancel();
     });
   }
+  recordPastEvent(){
+    Countly.recordPastEvent(key, segmentation, count, sum, dur, timestamp);
+
+  }
   recordViewHome(){
     Map<String, Object> segments = {
       "Key_1": "Value_1",
@@ -167,6 +175,15 @@ class _MyAppState extends State<MyApp> {
   }
   recordViewDashboard(){
     Countly.recordView("Dashboard");
+  }
+  setViewTracking(){
+    Countly.setViewTracking(true);
+  }
+  setAutoTrackingUseShortName(){
+    Countly.setAutoTrackingUseShortName(true);
+  }
+  setTrackOrientationChanges(){
+    Countly.setTrackOrientationChanges(true);
   }
   String makeid(){
     int code = new Random().nextInt(999999);
@@ -279,6 +296,9 @@ class _MyAppState extends State<MyApp> {
   }
   removeMultipleConsent(){
     Countly.removeConsent(["events", "views", "star-rating", "crashes"]);
+  }
+  giveAllConsent(){
+     Countly.giveAllConsent();
   }
   removeAllConsent(){
     Countly.removeAllConsent();
@@ -462,11 +482,14 @@ class _MyAppState extends State<MyApp> {
     } catch (e, s) {
       print('Exception occurs: $e');
       print('STACK TRACE\n: $s');
-      Countly.logExceptionEx(e, true, stacktrace: s);
+      Countly.logException(e, true, stacktrace: s);
     }
   }
 
   setLoggingEnabled(){
+    Countly.setLoggingEnabled(true);
+  }
+  setLoggingDisabled(){
     Countly.setLoggingEnabled(false);
   }
   askForStarRating(){
@@ -477,6 +500,9 @@ class _MyAppState extends State<MyApp> {
   }
   setLocation(){
     Countly.setLocation("-33.9142687","18.0955802");
+  }
+  disableLocation(){
+    Countly.disableLocation();
   }
 
   // APM Examples
@@ -526,18 +552,25 @@ class _MyAppState extends State<MyApp> {
             Column(children: <Widget>[
               MyButton(text: "Start", color: "green", onPressed: start),
               MyButton(text: "Stop", color: "red", onPressed: stop),
+              MyButton(text: "On Configuration Changed", color: "red", onPressed: onConfigurationChanged),
+
 
               MyButton(text: "Basic event", color: "brown", onPressed: basicEvent),
               MyButton(text: "Event with Sum", color: "brown", onPressed: eventWithSum),
               MyButton(text: "Event with Segment", color: "brown", onPressed: eventWithSegment),
-              MyButton(text: "Even with Sum and Segment", color: "brown", onPressed: eventWithSumSegment),
+              MyButton(text: "Event with Sum and Segment", color: "brown", onPressed: eventWithSumSegment),
               MyButton(text: "Timed event: Start / Stop", color: "grey", onPressed: endEventBasic),
               MyButton(text: "Timed event Sum: Start / Stop", color: "grey", onPressed: endEventWithSum),
               MyButton(text: "Timed event Segment: Start / Stop", color: "grey", onPressed: endEventWithSegment),
               MyButton(text: "Timed event Sum Segment: Start / Stop", color: "grey", onPressed: endEventWithSumSegment),
+              MyButton(text: "Record Past Event: Start / Stop", color: "grey", onPressed: recordPastEvent),
 
               MyButton(text: "Record View: 'HomePage'", color: "olive", onPressed: recordViewHome),
               MyButton(text: "Record View: 'Dashboard'", color: "olive", onPressed: recordViewDashboard),
+              MyButton(text: "Set View Tracking", color: "olive", onPressed: setViewTracking),
+              MyButton(text: "Set AutoTracking Use ShortName", color: "olive", onPressed: setAutoTrackingUseShortName),
+              MyButton(text: "Set Track Orientation Changes", color: "olive", onPressed: setTrackOrientationChanges),
+
 
               MyButton(text: "Send Captian America Data", color: "teal", onPressed: setCaptianAmericaData),
               MyButton(text: "Send Iron Man Data", color: "teal", onPressed: setIronManData),
@@ -556,6 +589,7 @@ class _MyAppState extends State<MyApp> {
 
               MyButton(text: "Give multiple consent", color: "blue", onPressed: giveMultipleConsent),
               MyButton(text: "Remove multiple consent", color: "blue", onPressed: removeMultipleConsent),
+              MyButton(text: "Give all Consent", color: "blue", onPressed: giveAllConsent),
               MyButton(text: "Remove all Consent", color: "blue", onPressed: removeAllConsent),
 
               MyButton(text: "Give Consent Sessions", color: "blue", onPressed: giveConsentSessions),
@@ -600,6 +634,7 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "Enable Parameter Tapmering Protection", color: "violet", onPressed: enableParameterTamperingProtection),
               MyButton(text: "City, State, and Location", color: "violet", onPressed: setOptionalParametersForInitialization),
               MyButton(text: "setLocation", color: "violet", onPressed: setLocation),
+              MyButton(text: "Disable Location", color: "violet", onPressed: disableLocation),
 
               MyButton(text: "Send Crash Report", color: "violet", onPressed: addCrashLog),
               MyButton(text: "Cause Exception", color: "violet", onPressed: causeException),
@@ -611,6 +646,8 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "Divided By Zero Exception", color: "violet", onPressed: dividedByZero),
 
               MyButton(text: "Enabling logging", color: "violet", onPressed: setLoggingEnabled),
+              MyButton(text: "Disable logging", color: "violet", onPressed: setLoggingDisabled),
+
 
               MyButton(text: "Open rating modal", color: "orange", onPressed: askForStarRating),
               MyButton(text: "Open feedback modal", color: "orange", onPressed: askForFeedback),

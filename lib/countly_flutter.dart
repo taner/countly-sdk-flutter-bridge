@@ -110,6 +110,15 @@ class Countly {
     log(result);
     return result;
   }
+  static Future<String> recordPastEvent() async {
+    List <String> args = [];
+    log(args.toString());
+    final String result = await _channel.invokeMethod('recordPastEvent', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
 
   /// Record custom view to Countly.
   ///
@@ -137,6 +146,39 @@ class Countly {
     }
     log(args.toString());
     final String result = await _channel.invokeMethod('recordView', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+   static Future<String> setViewTracking(bool flag) async {
+    List <String> args = [];
+    _isDebug = flag;
+    args.add(flag.toString());
+    log(args.toString());
+    final String result = await _channel.invokeMethod('setViewTracking', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  static Future<String> setTrackOrientationChanges(bool flag) async {
+    List <String> args = [];
+    _isDebug = flag;
+    args.add(flag.toString());
+    log(args.toString());
+    final String result = await _channel.invokeMethod('setTrackOrientationChanges', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  static Future<String> setAutoTrackingUseShortName(bool flag) async {
+    List <String> args = [];
+    _isDebug = flag;
+    args.add(flag.toString());
+    log(args.toString());
+    final String result = await _channel.invokeMethod('setAutoTrackingUseShortName', <String, dynamic>{
       'data': json.encode(args)
     });
     log(result);
@@ -258,6 +300,16 @@ class Countly {
     List <String> args = [];
     log(args.toString());
     final String result = await _channel.invokeMethod('stop', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+   
+  static Future<String> onConfigurationChanged() async {
+    List <String> args = [];
+    log(args.toString());
+    final String result = await _channel.invokeMethod('onConfigurationChanged', <String, dynamic>{
       'data': json.encode(args)
     });
     log(result);
@@ -428,6 +480,16 @@ class Countly {
     args.add(longitude);
     log(args.toString());
     final String result = await _channel.invokeMethod('setLocation', <String, dynamic>{
+      'data': json.encode(args)
+    });
+    log(result);
+    return result;
+  }
+  static Future<String> disableLocation() async {
+    List <String> args = [];
+
+    log(args.toString());
+    final String result = await _channel.invokeMethod('disableLocation', <String, dynamic>{
       'data': json.encode(args)
     });
     log(result);

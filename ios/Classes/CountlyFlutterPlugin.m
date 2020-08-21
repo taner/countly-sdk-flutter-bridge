@@ -107,6 +107,27 @@ NSMutableDictionary *networkRequest = nil;
         resultString = [resultString stringByAppendingString: key];
         result(resultString);
         });
+    }else if ([@"setViewTracking" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        config.features = @[CLYAutoViewTracking];
+        result(@"setViewTracking!");
+        });
+    }
+    else if ([@"setAutoTrackingUseShortName" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+       
+        result(@"setAutoTrackingUseShortName!");
+        });
+
+    }
+    else if ([@"setTrackOrientationChanges" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        result(@"setTrackOrientationChanges!");
+        });
+    }
+    else if ([@"recordPastEvent" isEqualToString:call.method]) {
+        result(@"recordPastEvent for: ");
+    }  
     }else if ([@"recordView" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         NSString* recordView = [command objectAtIndex:0];
@@ -180,7 +201,13 @@ NSMutableDictionary *networkRequest = nil;
         result(@"stop!");
         });
 
-    }else if ([@"updateSessionPeriod" isEqualToString:call.method]) {
+    }else if ([@"onConfigurationChanged" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        result(@"onConfigurationChangedop!");
+        });
+
+    }
+    else if ([@"updateSessionPeriod" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         config.updateSessionPeriod = 15;
         result(@"updateSessionPeriod!");
@@ -280,7 +307,15 @@ NSMutableDictionary *networkRequest = nil;
         result(@"setLocation!");
         });
 
-    }else if ([@"enableCrashReporting" isEqualToString:call.method]) {
+    }
+    else if ([@"disableLocation" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^ {
+        [Countly.sharedInstance disableLocationInfo];
+        result(@"disableLocation!");
+        });
+
+    }
+    else if ([@"enableCrashReporting" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^ {
         // config.features = @[CLYCrashReporting];
         result(@"enableCrashReporting!");

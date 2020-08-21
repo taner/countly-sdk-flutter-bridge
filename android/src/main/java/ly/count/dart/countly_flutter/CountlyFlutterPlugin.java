@@ -231,7 +231,11 @@ public class CountlyFlutterPlugin implements MethodCallHandler, FlutterPlugin, A
                 Countly.sharedInstance().setLocation(null, null, latlng, null);
               }
               result.success("setLocation success!");
-          } else if ("enableCrashReporting".equals(call.method)) {
+          }else if ("disableLocation".equals(call.method)) {
+                Countly.sharedInstance().disableLocation();
+                result.success("disableLocation success!");
+          }
+           else if ("enableCrashReporting".equals(call.method)) {
               this.setConfig();
               this.config.enableCrashReporting();
               // Countly.sharedInstance().enableCrashReporting();
@@ -350,7 +354,11 @@ public class CountlyFlutterPlugin implements MethodCallHandler, FlutterPlugin, A
               Countly.sharedInstance().onStop();
               result.success("stoped!");
 
-          } else if ("updateSessionPeriod".equals(call.method)) {
+          } else if ("onConfigurationChanged".equals(call.method)) {
+              Countly.sharedInstance().onConfigurationChanged(newConfig)
+              result.success("onConfigurationChanged!");
+          } 
+          else if ("updateSessionPeriod".equals(call.method)) {
               result.success("default!");
 
           } else if ("eventSendThreshold".equals(call.method)) {
@@ -390,7 +398,21 @@ public class CountlyFlutterPlugin implements MethodCallHandler, FlutterPlugin, A
               }
               Countly.sharedInstance().events().recordEvent(key, segmentation, count, sum, duration);
               result.success("recordEvent for: " + key);
-          } else if ("setLoggingEnabled".equals(call.method)) {
+          }else if ("recordPastEvent".equals(call.method)) {
+              String key = args.getString(0);
+              int count = Integer.parseInt(args.getString(1));
+              float sum = Float.valueOf(args.getString(2)); // new Float(args.getString(2)).floatValue();
+              int duration = Integer.parseInt(args.getString(3));
+              HashMap<String, Object> segmentation = new HashMap<String, Object>();
+              if (args.length() > 4) {
+                  for (int i = 4, il = args.length(); i < il; i += 2) {
+                      segmentation.put(args.getString(i), args.getString(i + 1));
+                  }
+              }
+              Countly.sharedInstance().events().recordPastEvent(key, segmentation, count, sum, duration, timestamp)
+              result.success("recordPastEvent for: " + key);
+          }
+           else if ("setLoggingEnabled".equals(call.method)) {
               String loggingEnable = args.getString(0);
               this.setConfig();
               if (loggingEnable.equals("true")) {
@@ -533,7 +555,34 @@ public class CountlyFlutterPlugin implements MethodCallHandler, FlutterPlugin, A
               }
               Countly.sharedInstance().views().recordView(viewName, segments);
               result.success("View name sent: " + viewName);
-          } else if ("setOptionalParametersForInitialization".equals(call.method)) {
+          } else if ("setViewTracking".equals(call.method)) {
+              String flag = args.getString(0);
+              if (flag.equals("true")) {
+                  this.config.setViewTracking(true);
+              } else {
+                  this.config.setViewTracking(false);
+              }
+             result.success("setViewTracking:");
+          } 
+          else if ("setAutoTrackingUseShortName".equals(call.method)) {
+              String flag = args.getString(0);
+              if (flag.equals("true")) {
+                  this.config.setAutoTrackingUseShortName(true);
+              } else {
+                  this.config.setAutoTrackingUseShortName(false);
+              }
+             result.success("setAutoTrackingUseShortName:");
+          } 
+          else if ("setTrackOrientationChanges".equals(call.method)) {
+              String flag = args.getString(0);
+              if (flag.equals("true")) {
+                  this.config.setTrackOrientationChanges(true);
+              } else {
+                  this.config.setTrackOrientationChanges(false);
+              }
+             result.success("setTrackOrientationChanges:");
+          } 
+          else if ("setOptionalParametersForInitialization".equals(call.method)) {
               String city = args.getString(0);
               String country = args.getString(1);
               String latitude = args.getString(2);
