@@ -18,11 +18,7 @@ class Countly {
   /// its value should be updated from [setLoggingEnabled(bool flag)].
   static bool _isDebug = false;
 
-  /// Used to determine if init is called.
-  /// its value should be updated from [init(...)].
-  static bool _isInitialized = false;
-
-  static final String tag = "CountlyFlutter";
+  static final String TAG = "CountlyFlutter";
 
   /// Flag to determine if crash logging functionality should be enabled
   /// If false the intercepted crashes will be ignored
@@ -37,11 +33,10 @@ class Countly {
   static log(String message, {LogLevel logLevel = LogLevel.DEBUG}) async {
     String logLevelStr = describeEnum(logLevel);
     if(_isDebug){
-      print('[$tag] $logLevelStr: $message');
+      print('[$TAG] ${logLevelStr}: ${message}');
     }
   }
   static Future<String> init(String serverUrl, String appKey, [String deviceId]) async {
-    _isInitialized = true;
     if (Platform.isAndroid) {
       messagingMode = {"TEST": "2", "PRODUCTION": "0"};
     }
@@ -332,26 +327,6 @@ static Future<String> onNotification(Function callback) async {
     });
     log(result);
     return result;
-  }
-
-  /// Sets the interval for the automatic session update calls
-  /// min value 1 (1 second),
-  /// max value 600 (10 minutes)
-  /// [int sessionInterval]- delay in seconds
-  static Future<String> updateSessionInterval(int sessionInterval) async {
-    if(_isInitialized) {
-      log('updateSessionInterval should be called before init',logLevel: LogLevel.WARNING);
-      return "updateSessionInterval should be called before init";
-    }
-    List <String> args = [];
-    args.add(sessionInterval.toString());
-    log(args.toString());
-    final String result = await _channel.invokeMethod('updateSessionInterval', <String, dynamic>{
-      'data': json.encode(args)
-    });
-    log(result);
-    return result;
-
   }
 
   /// Events get grouped together and are sent either every minute or after the unsent event count reaches a threshold. By default it is 10
