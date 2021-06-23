@@ -578,6 +578,45 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  void reportSurveyEvent() async {
+    String questionId = '1624271647-0';
+    String questionId_1 = '1624271647-1';
+
+    Map<String, String> answersWithId = {
+      questionId: 'Answer to the question',
+      questionId_1: 'Answer to the question'
+    };
+    reportSurvey('60d06b1fb1908f5eba2581c4', answersWithId);
+  }
+
+  void reportSurvey(String widgetId, Map<String, String> answersWithId) async {
+    Map<String, Object> segments = {
+      'widget_id': '60d06b1fb1908f5eba2581c4'
+    };
+    answersWithId.forEach((questionId, answer) {
+      String questionKey = 'answ-$questionId';
+      segments[questionKey] = answer;
+    });
+    var event = {'key': '[CLY]_survey',
+      'segmentation': segments};
+    Countly.recordEvent(event);
+  }
+
+  void reportNPSEvent() async {
+    reportNPS('60d1e1bedb42bd722908ec14', 5, 'NPS comment');
+  }
+
+  void reportNPS(String widgetId, int rating, String comment) async {
+    Map<String, Object> segments = {
+      'widget_id': widgetId,
+      'rating': rating,
+      'comment': comment
+    };
+    var event = {'key': '[CLY]_nps',
+      'segmentation': segments};
+    Countly.recordEvent(event);
+  }
+
   setLocation(){
     Countly.setLocation("-33.9142687","18.0955802");
   }
@@ -716,6 +755,9 @@ class _MyAppState extends State<MyApp> {
               MyButton(text: "Show NPS", color: "orange", onPressed: showNPS),
               MyButton(text: "Report Survey Manually", color: "orange", onPressed: reportSurveyManually),
               MyButton(text: "Report NPS Manually", color: "orange", onPressed: reportNPSManually),
+              MyButton(text: "Report Survey Event", color: "orange", onPressed: reportSurveyEvent),
+              MyButton(text: "Report NPS Event", color: "orange", onPressed: reportNPSEvent),
+
 
               MyButton(text: "Start Trace", color: "black", onPressed: startTrace),
               MyButton(text: "End Trace", color: "black", onPressed: endTrace),
